@@ -1,0 +1,7 @@
+general :
+  src_path : /devel/in
+  dst_path : /devel/out
+  ps2pdfp : /usr/bin/ps2pdf
+  recursive : True
+
+ps2pdf :
