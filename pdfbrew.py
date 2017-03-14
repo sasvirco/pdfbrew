@@ -5,17 +5,12 @@ import logging
 import argparse
 import yaml
 import json
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+import magic
+import inotify.adapters
 
 
-class NewFileHandler(FileSystemEventHandler):
-    def on_created(self, event):
-        logging.info(event.__class__.__name__ + ' ' + event.src_path )
-        ps2pdf(event.src_path, event.src_path)
 
-
-if __name__ == "__main__":
+def main ():
 
 
     levels = {
@@ -52,18 +47,20 @@ if __name__ == "__main__":
         console.setFormatter(formatter)
         root.addHandler(console)
     
-    event_handler = NewFileHandler()
-    observer = Observer()
-    observer.schedule(event_handler, path='/devel/in', recursive=True)
-    observer.start()
+	notifier = inotify.adapters.Inotify()
+	notifier.add_watch('/tmp/in')
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    
-    observer.join()
+	for event in notifier.event_gen():
+		if event is not None:
+			if 'IN_CREATE' in event[1]:
+
+				file = event[2] + '/' + event[3]
+				ftype = False
+				
+				with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
+					ftype = m.id_filename(file)
+					if (ftype is not False and ftype == 'application/postscript'):
+						ps2pdf(file, '/tmp/out')
 
 def ps2pdf(src, dst) :
     logging.info('converting file' + src + ' to ' + dst )
@@ -77,3 +74,6 @@ def parse_config(configfile, fmt) :
         return json.loads(txt)
 
     return yaml.load(txt)
+
+if __name__ == "__main__":
+	main()
