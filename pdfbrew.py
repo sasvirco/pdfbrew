@@ -5,7 +5,7 @@ import yaml
 import magic
 import inotify.adapters
 import sys
-import ghostscript
+from subprocess import Popen, PIPE
 import os
 import uuid
 
@@ -54,8 +54,10 @@ def main ():
 		root.addHandler(console)
 
 		
-	notifier = inotify.adapters.InotifyTree(config['watch'])
-	root.info("started watching " + config['watch'])
+	notifier = inotify.adapters.Inotify()
+	for w in config['watch'] :
+		notifier.add_watch(w)
+		root.info("started watching " + w)
 
 	try :
 		for event in notifier.event_gen():
@@ -70,7 +72,7 @@ def main ():
 					with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
 						ftype = m.id_filename(file)
 						if (ftype is not False and ftype == 'application/postscript'):
-							ps2pdf(file, config['output_folder'], config['ps2pdf_args'])
+							ps2pdf(file, config['output_folder'], config['ps2pdf_opts'])
 	
 	except KeyboardInterrupt:
 		root.fatal('keyboard interrupt')
@@ -80,24 +82,21 @@ def ps2pdf(src, dst, ps2pdf_args) :
 
 	name, ext = os.path.splitext(src)
 	out_file = dst + '/' + os.path.basename(name) + '.pdf'
+	cmd = ["ps2pdf", "-sOwnerPassword="+str(uuid.uuid4().get_hex().upper()[0:6]) ]
+	
+	if ps2pdf_args :
+		cmd = cmd + ps2pdf_args.split(' ')
 
-	gs_args = [
-		"ps2pdf",
-		"-dSAFER", "-dNOPAUSE", "-dQUIET", "-dBATCH",
-		"-sDEVICE=pdfwrite",
-		"-sOutputFile=" + out_file,
-		"-sOwnerPassword=" + str(uuid.uuid4().get_hex().upper()[0:6]),
-		"-c",".setpdfwrite",
-		"-f", src
-	]
+	proc = Popen(cmd + [ src, out_file] , stderr=PIPE, stdout=PIPE)
 
-	#if (ps2pdf_args) :
-	#	for k in ps2pdf_args :
-	#		gs_args.append(k)
+	logging.debug("execuging "+ " ".join(str(x) for x in cmd) + ' ' + src + ' '+ out_file)
+	
+	(stdout, stderr) = proc.communicate()
+	if proc.returncode :
+		logging.error(stderr)
+	else :
+		logging.info('converted file ' + src + ' to ' + out_file )
 
-	logging.debug(gs_args)
-	logging.info('converting file' + src + ' to ' + out_file )
-	ghostscript.Ghostscript(*gs_args)
 
 
 def parse_config(configfile) :

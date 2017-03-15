@@ -1,6 +1,10 @@
 ---
 # which folder to watch for chaanges (it works recursively)
-watch : /devel/in
+watch : 
+ -
+  /devel/in
+ -
+  /devel/in/folder1
 
 #folder in which to put the converted pdf files
 output_folder : /devel/out
@@ -12,10 +16,4 @@ loglevel: INFO
 logfile : pdfbrew.log
 
 # ps2pdf args
-ps2pdf_args :
-    -
-     -dBATCH
-    -
-      -dSAFER
-    -
-      -dCompatibility=1.4
+ps2pdf_opts : -dCompatibility=1.4
