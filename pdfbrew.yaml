@@ -1,7 +1,21 @@
-general :
-  src_path : /devel/in
-  dst_path : /devel/out
-  ps2pdfp : /usr/bin/ps2pdf
-  recursive : True
+---
+# which folder to watch for chaanges (it works recursively)
+watch : /devel/in
 
-ps2pdf :
+#folder in which to put the converted pdf files
+output_folder : /devel/out
+
+# debug level 
+loglevel: INFO
+
+# logfile
+logfile : pdfbrew.log
+
+# ps2pdf args
+ps2pdf_args :
+    -
+     -dBATCH
+    -
+      -dSAFER
+    -
+      -dCompatibility=1.4
