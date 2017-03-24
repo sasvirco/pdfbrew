@@ -9,7 +9,7 @@ Configuration is in yaml format.
  * logfile - self explanatory
  * ps2pdf_opts - additional arguments that can be specified when running ps2pdf. Please not that the pdfbrew always runs ps2pdf with -sOwnerPassword=randomString to prevent files from modification.
  
- ```
+ ```yaml
  ---
 # which folder to watch for chaanges (it works recursively)
 watch :
