@@ -7,6 +7,7 @@ Configuration is in yaml format.
  * output_folder - the folder where converted postscript files will be stored
  * logleve - the logging level for the application
  * logfile - self explanatory
+ * delete_original - True or False - delete original file after converting
  * ps2pdf_opts - additional arguments that can be specified when running ps2pdf. Please not that the pdfbrew always runs ps2pdf with -sOwnerPassword=randomString to prevent files from modification.
  
  ```yaml
@@ -20,6 +21,9 @@ watch :
 
 #folder in which to put the converted pdf files
 output_folder : /devel/out
+
+#delete original file after converting
+delete_original: True
 
 # debug level
 loglevel: INFO
