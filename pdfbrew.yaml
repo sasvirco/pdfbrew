@@ -2,12 +2,15 @@
 # which folder to watch for chaanges (it works recursively)
 watch : 
  -
-  /devel/in
+  /home/sas/in1
  -
-  /devel/in/folder1
+  /home/sas/in2
+
+# delete original file after converting
+delete_original : True
 
 #folder in which to put the converted pdf files
-output_folder : /devel/out
+output_folder : /home/sas/out
 
 # debug level 
 loglevel: INFO

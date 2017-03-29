@@ -21,7 +21,7 @@ def main ():
 	}
 
 	parser = argparse.ArgumentParser(description = 'Monitor folder for ps files and convert them to pdf')
-	parser.add_argument('--loglevel', default = 'INFO', help='FATAL, ERROR, WARNING, INFO, DEBUG')
+	parser.add_argument('--loglevel', default = 'INFO', help='CRITICAL, ERROR, WARNING, INFO, DEBUG')
 	parser.add_argument('--logfile', default = 'pdfbrew.log', help='Logfile to store messages (Default: pdfbrew.log)')
 	parser.add_argument('--configfile', default = 'pdfbrew.yaml', help='Config file in json or yaml format')
 	parser.add_argument('--quiet', action='store_true', help='Do not print logging to stdout')
@@ -55,9 +55,20 @@ def main ():
 
 		
 	notifier = inotify.adapters.Inotify()
+	
+	if (not os.access(config['output_folder'], os.W_OK) 
+		and not os.path.isdir(config['output_folder'])) :
+		root.critical("Can't write to output_folder "+config['output_folder']+ " or it does not exist")
+		sys.exit(1)
+
+
 	for w in config['watch'] :
-		notifier.add_watch(w)
-		root.info("started watching " + w)
+		if (os.path.isdir(w)) :
+			notifier.add_watch(w)
+			root.info("started watching " + w)
+		else :
+			root.critical("cannot watch "+ w + " it is not a directory")
+			sys.exit(1)
 
 	try :
 		for event in notifier.event_gen():
@@ -71,8 +82,13 @@ def main ():
 								
 					with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
 						ftype = m.id_filename(file)
+						rc = None
 						if (ftype is not False and ftype == 'application/postscript'):
-							ps2pdf(file, config['output_folder'], config['ps2pdf_opts'])
+							rc = ps2pdf(file, config['output_folder'], config['ps2pdf_opts'])
+						
+						if (rc and config['delete_original']) :
+							os.remove(file)
+
 	
 	except KeyboardInterrupt:
 		root.fatal('keyboard interrupt')
@@ -94,8 +110,10 @@ def ps2pdf(src, dst, ps2pdf_args) :
 	(stdout, stderr) = proc.communicate()
 	if proc.returncode :
 		logging.error(stderr)
+		return False
 	else :
 		logging.info('converted file ' + src + ' to ' + out_file )
+		return True
 
 
 
