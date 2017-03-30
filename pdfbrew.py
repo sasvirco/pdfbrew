@@ -8,6 +8,7 @@ import sys
 from subprocess import Popen, PIPE
 import os
 import uuid
+import shutil
 
 def main ():
 
@@ -86,8 +87,14 @@ def main ():
 						if (ftype is not False and ftype == 'application/postscript'):
 							rc = ps2pdf(file, config['output_folder'], config['ps2pdf_opts'])
 						
+						if (rc and config['copy_original']) :
+							root.info("Copy original file "+ file + " to destination "+config['output_folder'])
+							config['delete_original'] = True
+							shutil.copy2(file, config['output_folder'])
+
 						if (rc and config['delete_original']) :
 							os.remove(file)
+							root.info("Deleting "+ file )
 
 	
 	except KeyboardInterrupt:
