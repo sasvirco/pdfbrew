@@ -5,9 +5,10 @@ Pdfbrew is a simple python app to replace some of the functionality of PDF Disti
 Configuration is in yaml format.
  * watch - a list of directories to watch for new postscript files
  * output_folder - the folder where converted postscript files will be stored
- * logleve - the logging level for the application
+ * loglevel - the logging level for the application
  * logfile - self explanatory
  * delete_original - True or False - delete original file after converting
+ * copy_original - True or False - copy the original file in the output_folder (sets delete_original to True)
  * ps2pdf_opts - additional arguments that can be specified when running ps2pdf. Please not that the pdfbrew always runs ps2pdf with -sOwnerPassword=randomString to prevent files from modification.
  
  ```yaml
@@ -24,6 +25,11 @@ output_folder : /devel/out
 
 #delete original file after converting
 delete_original: True
+
+# copy original file in the output_folder 
+# alongside the converted one 
+# resets delete_original to True
+copy_original: True
 
 # debug level
 loglevel: INFO
