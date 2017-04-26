@@ -112,7 +112,7 @@ def ps2pdf(src, dst, ps2pdf_args) :
 
 	proc = Popen(cmd + [ src, out_file] , stderr=PIPE, stdout=PIPE)
 
-	logging.debug("execuging "+ " ".join(str(x) for x in cmd) + ' ' + src + ' '+ out_file)
+	logging.debug("executing "+ " ".join(str(x) for x in cmd) + ' ' + src + ' '+ out_file)
 	
 	(stdout, stderr) = proc.communicate()
 	if proc.returncode :
