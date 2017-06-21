@@ -1,16 +1,12 @@
 ---
-# which folder to watch for chaanges (it works recursively)
+# which folder to watch for changes
+# containts pairs of input and output folders
 watch : 
- -
-  /home/sas/in1
- -
-  /home/sas/in2
+  /home/az023377/in1 : /home/az023377/out1
+  /home/az023377/in2 : /home/az023377/out2
 
 # delete original file after converting
 delete_original : True
-
-#folder in which to put the converted pdf files
-output_folder : /home/sas/out
 
 # copy original file in the output_folder 
 # alongside the converted one 

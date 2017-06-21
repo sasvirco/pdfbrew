@@ -22,7 +22,7 @@ def main ():
 	}
 
 	parser = argparse.ArgumentParser(description = 'Monitor folder for ps files and convert them to pdf')
-	parser.add_argument('--loglevel', default = 'INFO', help='CRITICAL, ERROR, WARNING, INFO, DEBUG')
+	parser.add_argument('--loglevel', help='CRITICAL, ERROR, WARNING, INFO, DEBUG')
 	parser.add_argument('--logfile', default = 'pdfbrew.log', help='Logfile to store messages (Default: pdfbrew.log)')
 	parser.add_argument('--configfile', default = 'pdfbrew.yaml', help='Config file in json or yaml format')
 	parser.add_argument('--quiet', action='store_true', help='Do not print logging to stdout')
@@ -48,7 +48,7 @@ def main ():
 	root = logging.getLogger()
 	if args.quiet is False: 
 		console = logging.StreamHandler()
-		console.setLevel(args.loglevel)
+		console.setLevel(config['loglevel'])
 		
 		formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
 		console.setFormatter(formatter)
@@ -56,12 +56,6 @@ def main ():
 
 		
 	notifier = inotify.adapters.Inotify()
-	
-	if (not os.access(config['output_folder'], os.W_OK) 
-		and not os.path.isdir(config['output_folder'])) :
-		root.critical("Can't write to output_folder "+config['output_folder']+ " or it does not exist")
-		sys.exit(1)
-
 
 	for w in config['watch'] :
 		if (os.path.isdir(w)) :
@@ -70,7 +64,12 @@ def main ():
 		else :
 			root.critical("cannot watch "+ w + " it is not a directory")
 			sys.exit(1)
-
+		
+		if (not os.access(config['watch'][w], os.W_OK) 
+			and not os.path.isdir(config['watch'][w])) :
+			root.critical("Can't write to output_folder "+config['watch'][w]+ " or it does not exist")
+			sys.exit(1)
+			
 	try :
 		for event in notifier.event_gen():
 			
@@ -85,12 +84,12 @@ def main ():
 						ftype = m.id_filename(file)
 						rc = None
 						if (ftype is not False and ftype == 'application/postscript'):
-							rc = ps2pdf(file, config['output_folder'], config['ps2pdf_opts'])
+							rc = ps2pdf(file, config['watch'][event[2]], config['ps2pdf_opts'])
 						
 						if (rc and config['copy_original']) :
-							root.info("Copy original file "+ file + " to destination "+config['output_folder'])
+							root.info("Copy original file "+ file + " to destination "+config['watch'][event[2]])
 							config['delete_original'] = True
-							shutil.copy2(file, config['output_folder'])
+							shutil.copy2(file, config['watch'][event[2]])
 
 						if (rc and config['delete_original']) :
 							os.remove(file)
