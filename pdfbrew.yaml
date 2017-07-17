@@ -19,5 +19,7 @@ loglevel: INFO
 # logfile
 logfile : pdfbrew.log
 
-# ps2pdf args
-ps2pdf_opts : -dCompatibility=1.4
+# ps2pdf args 
+# string RANDOMPASS will be replaced with a random password
+# use for g.g. -sOwnerPassword if you want to have a random one
+ps2pdf_opts : -dCompatibility=1.4 -sOwnerPassword=RANDOMPASS
