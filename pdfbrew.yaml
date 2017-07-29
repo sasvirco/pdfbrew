@@ -2,16 +2,20 @@
 # which folder to watch for changes
 # containts pairs of input and output folders
 watch : 
-  /home/az023377/in1 : /home/az023377/out1
-  /home/az023377/in2 : /home/az023377/out2
+  /home/sas/in1 : /home/sas/out1
+  /home/sas/in2 : /home/sas/out2
+
+# convert all files in input queue
+# before starting the watch  that have been accumulated in input
+convert_onstart : yes
 
 # delete original file after converting
-delete_original : True
+delete_original : yes
 
 # copy original file in the output_folder 
 # alongside the converted one 
 # resets delete_original to True
-copy_original: True
+copy_original: yes
 
 # debug level 
 loglevel: INFO

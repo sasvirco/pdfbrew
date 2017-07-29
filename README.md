@@ -8,25 +8,29 @@ Configuration is in yaml format.
  * logfile - self explanatory
  * delete_original - True or False - delete original file after converting
  * copy_original - True or False - copy the original file in the output_folder (sets delete_original to True)
- * ps2pdf_opts - additional arguments that can be specified when running ps2pdf. Please note that the pdfbrew always runs ps2pdf with -sOwnerPassword=randomString to prevent files from modification.
+ * convert_onstart - True or False - convert all files in input folder before starting the watch (skiped if       delete_original is false). Useful to clean up files in the queue if service was stoped for maintenance
+ * ps2pdf_opts - additional arguments that can be specified when running ps2pdf. In case your option is a password
+                 you can use the special string RANDOMPASS and it will be replaced with random password
  
  ```yaml
- ---
-# which folder to watch for chaanges (it works recursively)
 ---
 # which folder to watch for changes
 # containts pairs of input and output folders
-watch :
-  /home/az023377/in1 : /home/az023377/out1
-  /home/az023377/in2 : /home/az023377/out2
+watch : 
+  /home/sas/in1 : /home/sas/out1
+  /home/sas/in2 : /home/sas/out2
 
 # delete original file after converting
-delete_original : True
+delete_original : yes
+
+# convert all files in input queue
+# before starting the watch 
+convert_onstart : yes
 
 # copy original file in the output_folder 
 # alongside the converted one 
 # resets delete_original to True
-copy_original: True
+copy_original: yes
 
 # debug level 
 loglevel: INFO
@@ -34,8 +38,10 @@ loglevel: INFO
 # logfile
 logfile : pdfbrew.log
 
-# ps2pdf args
-ps2pdf_opts : -dCompatibility=1.4
+# ps2pdf args 
+# string RANDOMPASS will be replaced with a random password
+# use for g.g. -sOwnerPassword if you want to have a random one
+ps2pdf_opts : -dCompatibility=1.4 -sOwnerPassword=RANDOMPASS
 
 ```
 # Command line arguments
