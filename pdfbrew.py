@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Monitor folder for ps files and convert them to pdf')
     parser.add_argument('-l', '--loglevel', help='CRITICAL, ERROR, WARNING, INFO, DEBUG')
-    parser.add_argument('-o', '--logfile', default='pdfbrew.log',
+    parser.add_argument('-o', '--logfile',
                         help='Logfile to store messages (Default: pdfbrew.log)')
     parser.add_argument('-c', '--configfile', default='pdfbrew.yaml',
                         help='Config file in json or yaml format')
