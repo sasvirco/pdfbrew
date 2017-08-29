@@ -15,13 +15,21 @@ delete_original : yes
 # copy original file in the output_folder 
 # alongside the converted one 
 # resets delete_original to True
-copy_original: yes
+copy_original: no
 
 # debug level 
 loglevel: INFO
 
 # logfile
 logfile : pdfbrew.log
+
+# filetypes to convert from
+# ignores other files in input dir
+filetypes: 
+  - application/postscript
+  - application/pdf
+  - text/plain
+  - application/octet-stream
 
 # ps2pdf args 
 # string RANDOMPASS will be replaced with a random password
