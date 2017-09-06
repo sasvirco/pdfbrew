@@ -3,7 +3,7 @@
 import logging
 import argparse
 import sys
-from multiprocessing import Process, Value
+from multiprocessing import Process
 from subprocess import Popen, PIPE
 import os
 import uuid
@@ -84,13 +84,17 @@ def main():
                 if 'IN_CLOSE_WRITE' in event[1]:
 
                     fname = event[2] + '/' + event[3]
-                    convert_file(fname, config['watch'][event[2]], config)
+                    proc = Process(target=convert_file, 
+                                   args=(fname, config['watch'][event[2]], config))
+                    proc.start()
+                    proc.join()
+
     except KeyboardInterrupt:
         root.fatal('keyboard interrupt')
         sys.exit(0)
 
 
-def ps2pdf(src, dst, ps2pdf_args, ret_dict):
+def ps2pdf(src, dst, ps2pdf_args):
     """spawns ps2pdf process"""
 
     name, ext = os.path.splitext(src)
@@ -115,19 +119,16 @@ def ps2pdf(src, dst, ps2pdf_args, ret_dict):
         #cleanup broken file from output if convertion failed
         if os.path.exists(out_file):
             os.remove(out_file)
-        ret = False
+        return False
     else:
         logging.info('converted file ' + src + ' to ' + out_file)
-        ret = True
-
-    return ret
-
+        return True
 
 def convert_onstart(config):
     """empty input queue on start before watch"""
 
     if not config['delete_original']:
-        logging.info('Cannot convert queue on start, delete_original is False')
+        logging.warn('Cannot convert queue on start, delete_original is False')
         return
 
     logging.info('Converting files in queue before starting watch')
@@ -144,14 +145,12 @@ def convert_file(fname, outdir, config):
 
     with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
         ftype = m.id_filename(fname)
-        ret = Value('b', False)
+        ret = False
 
         logging.debug("filename: " + fname + " is type  " + ftype)
 
         if ftype is not False and ftype in config['filetypes']:
-            proc = Process(target=ps2pdf, args=(fname, outdir, config['ps2pdf_opts'], ret))
-            proc.start()
-            proc.join()
+            ret = ps2pdf(fname, outdir, config['ps2pdf_opts'])
 
         if ret and config['copy_original']:
             logging.info("Copy original file " + fname +
