@@ -8,10 +8,26 @@ from subprocess import Popen, PIPE
 import os
 import uuid
 import shutil
+import time
 import yaml
 import magic
-import inotify.adapters
 
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers.polling import PollingObserver as Observer
+
+class BrewHandler(FileSystemEventHandler):
+    """ capture file created event and brew pdf """
+    def __init__(self, config):
+        self.config = config
+
+    def on_created(self, event):
+
+        fname = event.src_path
+        src_dir = os.path.dirname(event.src_path)
+        proc = Process(target=convert_file,
+                       args=(fname, self.config['watch'][src_dir], self.config))
+        proc.start()
+        proc.join()
 
 def main():
     """main"""
@@ -58,11 +74,13 @@ def main():
     if config['convert_onstart']:
         convert_onstart(config)
 
-    notifier = inotify.adapters.Inotify()
+    observer = Observer()
+    event_handler = BrewHandler(config)
 
     for indir in config['watch']:
         if os.path.isdir(indir):
-            notifier.add_watch(indir)
+            #notifier.add_watch(indir)
+            observer.schedule(event_handler, indir, recursive=False)
             root.info("started watching " + indir +
                       " with output at " + config['watch'][indir])
         else:
@@ -75,23 +93,17 @@ def main():
                           " or does not exist")
             sys.exit(1)
 
+    observer.start()
+
     try:
-        for event in notifier.event_gen():
-
-            root.debug(event)
-
-            if event is not None:
-                if 'IN_CLOSE_WRITE' in event[1]:
-
-                    fname = event[2] + '/' + event[3]
-                    proc = Process(target=convert_file, 
-                                   args=(fname, config['watch'][event[2]], config))
-                    proc.start()
-                    proc.join()
-
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
+        observer.stop()
         root.fatal('keyboard interrupt')
         sys.exit(0)
+
+    observer.join()
 
 
 def ps2pdf(src, dst, ps2pdf_args):
