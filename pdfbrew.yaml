@@ -23,6 +23,12 @@ loglevel: DEBUG
 # logfile
 logfile : pdfbrew.log
 
+# directory polling interval
+polling_interval: 15
+
+# number of workers
+num_workers: 4
+
 # filetypes to convert from
 # ignores other files in input dir
 filetypes: 

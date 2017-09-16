@@ -9,6 +9,8 @@ Configuration is in yaml format.
  * delete_original - True or False - delete original file after converting
  * copy_original - True or False - copy the original file in the output_folder (sets delete_original to True)
  * convert_onstart - True or False - convert all files in input folder before starting the watch (skiped if       delete_original is false). Useful to clean up files in the queue if service was stoped for maintenance
+ * polling_interval - how often remote folders should be checked for changes
+ * num_workers - number of worker threads to process events
  * ps2pdf_opts - additional arguments that can be specified when running ps2pdf. In case your option is a password
                  you can use the special string RANDOMPASS and it will be replaced with random password
  
@@ -38,6 +40,11 @@ loglevel: INFO
 # logfile
 logfile : pdfbrew.log
 
+# directory polling interval
+polling_interval: 15
+
+# number of workers
+num_workers: 4
 # ps2pdf args 
 # string RANDOMPASS will be replaced with a random password
 # use for g.g. -sOwnerPassword if you want to have a random one

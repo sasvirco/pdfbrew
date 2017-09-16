@@ -3,7 +3,8 @@
 import logging
 import argparse
 import sys
-from multiprocessing import Process
+import Queue
+import threading
 from subprocess import Popen, PIPE
 import os
 import uuid
@@ -11,23 +12,27 @@ import shutil
 import time
 import yaml
 import magic
-
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers.polling import PollingObserver as Observer
 
 class BrewHandler(FileSystemEventHandler):
     """ capture file created event and brew pdf """
-    def __init__(self, config):
+    def __init__(self, queue, config):
         self.config = config
+        self.queue = queue
 
     def on_created(self, event):
+        if event.is_directory is False:
+            self.queue.put(event)
 
+def process_queue(queue, config):
+    """ process event queue """
+    while True:
+        event = queue.get()
+        logging.info(event)
         fname = event.src_path
         src_dir = os.path.dirname(event.src_path)
-        proc = Process(target=convert_file,
-                       args=(fname, self.config['watch'][src_dir], self.config))
-        proc.start()
-        proc.join()
+        convert_file(fname, config['watch'][src_dir], config)
 
 def main():
     """main"""
@@ -39,7 +44,7 @@ def main():
     parser.add_argument('-o', '--logfile',
                         help='Logfile to store messages (Default: pdfbrew.log)')
     parser.add_argument('-c', '--configfile', default='pdfbrew.yaml',
-                        help='Config file in json or yaml format')
+                        help='Config file yaml format')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Do not print logging to stdout')
 
@@ -74,12 +79,20 @@ def main():
     if config['convert_onstart']:
         convert_onstart(config)
 
-    observer = Observer()
-    event_handler = BrewHandler(config)
+    queue = Queue.Queue()
+    num_workers = config['num_workers']
+    pool = [threading.Thread(target=process_queue,
+                             args=(queue, config)) for _ in range(num_workers)]
+    for worker in pool:
+        worker.daemon = True
+        worker.start()
+
+    observer = Observer(timeout=config['polling_interval'])
+    observer.event_queue_maxsize = 20
+    event_handler = BrewHandler(queue, config)
 
     for indir in config['watch']:
         if os.path.isdir(indir):
-            #notifier.add_watch(indir)
             observer.schedule(event_handler, indir, recursive=False)
             root.info("started watching " + indir +
                       " with output at " + config['watch'][indir])
