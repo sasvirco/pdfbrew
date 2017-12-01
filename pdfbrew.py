@@ -184,8 +184,12 @@ def convert_file(fname, outdir, config):
             shutil.copy2(fname, outdir)
 
         if ret and config['delete_original']:
-            os.remove(fname)
-            logging.info("Deleting " + fname)
+            try : 
+                os.remove(fname)
+            except Exception as e:
+                loggin.error("Failed to delete "+ fname + " Exception: " + e)
+            else :
+                logging.info("Deleting " + fname)
 
         return
 
