@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import logging
 import argparse
 import sys
@@ -12,27 +11,7 @@ import shutil
 import time
 import yaml
 import magic
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers.polling import PollingObserver as Observer
-
-class BrewHandler(FileSystemEventHandler):
-    """ capture file created event and brew pdf """
-    def __init__(self, queue, config):
-        self.config = config
-        self.queue = queue
-
-    def on_created(self, event):
-        if event.is_directory is False:
-            self.queue.put(event)
-
-def process_queue(queue, config):
-    """ process event queue """
-    while True:
-        event = queue.get()
-        logging.info(event)
-        fname = event.src_path
-        src_dir = os.path.dirname(event.src_path)
-        convert_file(fname, config['watch'][src_dir], config)
+from apscheduler.schedulers.background import BackgroundScheduler
 
 def main():
     """main"""
@@ -50,7 +29,16 @@ def main():
 
     args = parser.parse_args()
 
-    config = parse_config(args.configfile)
+    newconf = parse_config(args.configfile)
+
+    config = {'polling_interval' : 15, 'purge_age' : 300, 'purge_int' : 120,
+              'purge_err_int': 120, 'num_workers' : 4, 'delete_onfail': True,
+              'filetypes' : ['application/postscript', 'application/pdf',
+                             'text/plain', 'application/octet-stream'],
+              'copy_original': True, 'loglevel': 'INFO',
+              'logfile': 'pdfbrew.log', 'fail_tries': 10}
+
+    config.update(newconf)
 
     if args.logfile:
         config['logfile'] = args.logfile
@@ -60,12 +48,14 @@ def main():
 
     logging.basicConfig(
         level=config['loglevel'],
-        format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        #format='%(asctime)s %(name)-12s %(funcName)20s() %(levelname)-8s %(message)s',
+        format="%(levelname) -10s %(asctime)s %(module)s:%(lineno)s %(funcName)s %(message)s",
         datefmt='%m-%d %H:%M',
         filename=config['logfile'],
         filemode='a')
 
-    root = logging.getLogger()
+    pdfbrew = logging.getLogger()
+
     if args.quiet is False:
         console = logging.StreamHandler()
         console.setLevel(config['loglevel'])
@@ -73,50 +63,53 @@ def main():
         formatter = logging.Formatter(
             '%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
         console.setFormatter(formatter)
-        root.addHandler(console)
+        pdfbrew.addHandler(console)
 
-    # clean up input folders before watch
-    if config['convert_onstart']:
-        convert_onstart(config)
 
     queue = Queue.Queue()
     num_workers = config['num_workers']
     pool = [threading.Thread(target=process_queue,
                              args=(queue, config)) for _ in range(num_workers)]
+
+
     for worker in pool:
         worker.daemon = True
         worker.start()
 
-    observer = Observer(timeout=config['polling_interval'])
-    observer.event_queue_maxsize = 20
-    event_handler = BrewHandler(queue, config)
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.start()
 
-    for indir in config['watch']:
-        if os.path.isdir(indir):
-            observer.schedule(event_handler, indir, recursive=False)
-            root.info("started watching " + indir +
-                      " with output at " + config['watch'][indir])
-        else:
-            root.critical("cannot watch " + indir + " it is not a directory")
-            sys.exit(1)
-
-        if (not os.access(config['watch'][indir], os.W_OK)
-                and not os.path.isdir(config['watch'][indir])):
-            root.critical("Can't write to output_folder " + config['watch'][indir] +
-                          " or does not exist")
-            sys.exit(1)
-
-    observer.start()
-
+    scheduler.add_job(purge_old_files, 'interval', seconds=int(config['purge_int']),
+                      args=[queue, config])
+    scheduler.add_job(purge_old_errors, 'interval', seconds=int(config['purge_err_int']),
+                      args=[queue, config])
+    scheduler.add_job(poll_folders, 'interval', seconds=int(config['polling_interval']),
+                      args=[queue, config])
     try:
-        while True:
+        while 1:
             time.sleep(1)
     except KeyboardInterrupt:
-        observer.stop()
-        root.fatal('keyboard interrupt')
         sys.exit(0)
 
-    observer.join()
+def poll_folders(queue, config):
+    """ poll watched folders and put files in the process queue"""
+
+    for indir in config['watch']:
+        logging.debug('scaning '+ indir + ' for new files')
+        paths = [os.path.join(indir, fn) for fn in next(os.walk(indir))[2]]
+        for path in paths:
+            queue.put([path, 'convert'])
+
+def process_queue(queue, config):
+    """ process event queue """
+    while True:
+        filename, action = queue.get()
+        if action == 'convert':
+            path = os.path.dirname(filename)
+            convert_file(filename, config['watch'][path], config)
+        if action == 'delete':
+            delete_file(filename)
+        time.sleep(1)
 
 
 def ps2pdf(src, dst, ps2pdf_args):
@@ -139,55 +132,69 @@ def ps2pdf(src, dst, ps2pdf_args):
 
     (stdout, stderr) = proc.communicate()
     if proc.returncode:
-        logging.error("cannot convert file: " + src)
-        logging.error(stderr)
+        logging.debug("cannot convert file: " + src)
+        logging.debug(stderr)
+
         #cleanup broken file from output if convertion failed
         if os.path.exists(out_file):
-            os.remove(out_file)
-        return False
+            delete_file(out_file)
+
+        return {'success' : False, 'error': stderr}
     else:
         logging.info('converted file ' + src + ' to ' + out_file)
-        return True
-
-def convert_onstart(config):
-    """empty input queue on start before watch"""
-
-    if not config['delete_original']:
-        logging.warn('Cannot convert queue on start, delete_original is False')
-        return
-
-    logging.info('Converting files in queue before starting watch')
-
-    for indir in config['watch']:
-        if os.path.isdir(indir):
-            paths = [os.path.join(indir, fn) for fn in next(os.walk(indir))[2]]
-            for filename in paths:
-                convert_file(filename, config['watch'][indir], config)
+        return {'success' : True, 'error': None}
 
 
 def convert_file(fname, outdir, config):
     """validate files and start conversion"""
 
+    if os.path.exists(fname) is False:
+        return
+
+    name, ext = os.path.splitext(fname)
+    out_file = outdir + '/' + os.path.basename(name) + '.pdf'
+    errstr = {'error': None, 'num_tries': 0}
+
+    if os.path.exists(out_file + ".err"):
+        errfile = open(out_file + ".err")
+        err = yaml.load(errfile.read())
+        logging.debug('Previous error detected for ' + fname
+                      + ' try ' + str(err['num_tries'])
+                      + '/' + str(config['fail_tries']))
+
+        errstr.update(err)
+
+    if errstr['num_tries'] > config['fail_tries']:
+        logging.error('Exceeding number of attempts to convert '
+                      + fname)
+        if config['delete_onfail']:
+            delete_file(fname)
+            delete_file(out_file + ".err")
+            return
+
     with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
         ftype = m.id_filename(fname)
-        ret = False
 
         logging.debug("filename: " + fname + " is type  " + ftype)
+        ret = {'success' : False, 'error': None}
 
         if ftype is not False and ftype in config['filetypes']:
             ret = ps2pdf(fname, outdir, config['ps2pdf_opts'])
 
-        if ret and config['copy_original']:
+        if ret['success'] and config['copy_original']:
             logging.info("Copy original file " + fname +
                          " to destination " + outdir)
-            config['delete_original'] = True
             shutil.copy2(fname, outdir)
 
-        if ret and config['delete_original']:
-            os.remove(fname)
-            logging.info("Deleting " + fname)
 
-        return
+        if ret['success'] is False:
+            errstr['num_tries'] = errstr['num_tries'] + 1
+            errstr['error'] = ret['error']
+            errfile = open(out_file + ".err", "w")
+            errfile.write(yaml.dump(errstr))
+        else:
+            delete_file(fname) #remove original
+            delete_file(out_file + ".err")
 
 
 def parse_config(configfile):
@@ -198,6 +205,48 @@ def parse_config(configfile):
 
     return yaml.load(txt)
 
+def delete_file(filename):
+    """delete file and catch any exceptions while doing it"""
+    try:
+        if os.path.exists(filename):
+            os.remove(filename)
+            logging.debug("Deleting " + filename)
+    except Exception as e:
+        logging.error("Cannot delete file "+ filename)
+        logging.exception(e)
+
+
+def purge_old_files(queue, config):
+    """purge old files after predefined period"""
+    logging.debug('Purging old files')
+
+    now = time.time()
+    i = 0
+    for indir in config['watch']:
+        logging.debug('scaning '+ indir + ' for stale error files')
+        paths = [os.path.join(config['watch'][indir], fn)
+                 for fn in next(os.walk(config['watch'][indir]))[2]]
+        for filename in paths:
+            creation_time = os.path.getctime(filename) + int(config['purge_age'])
+            if now > creation_time:
+                queue.put([filename, 'delete'])
+                i += 1
+        logging.info('Purging ' + str(i) + " old files in " + config['watch'][indir])
+
+def purge_old_errors(queue, config):
+    """purge stale errors files"""
+    logging.debug('Purging stale error files')
+
+    i = 0
+    for indir in config['watch']:
+        logging.debug('scaning '+ config['watch'][indir] + ' for stale error files')
+        paths = [os.path.join(config['watch'][indir], fn)
+                 for fn in next(os.walk(config['watch'][indir]))[2]]
+        for filename in paths:
+            if os.path.exists(filename) and os.path.exists(filename + ".err"):
+               queue.put([filename+".err", 'delete'])
+               i += 1
+        logging.info('Purging '+ str(i) + ' stale error files in' + config['watch'][indir])
 
 if __name__ == "__main__":
     main()
