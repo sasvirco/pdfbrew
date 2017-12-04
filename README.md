@@ -71,6 +71,7 @@ filetypes:
 # string RANDOMPASS will be replaced with a random password
 # use for g.g. -sOwnerPassword if you want to have a random one
 ps2pdf_opts : -dCompatibility=1.4 -sOwnerPassword=RANDOMPASS
+```
 # Command line arguments
 
 ```
