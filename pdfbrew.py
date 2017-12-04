@@ -186,16 +186,6 @@ def convert_file(fname, outdir, config):
                          " to destination " + outdir)
             shutil.copy2(fname, outdir)
 
-<<<<<<< HEAD
-=======
-        if ret and config['delete_original']:
-            try : 
-                os.remove(fname)
-            except Exception as e:
-                loggin.error("Failed to delete "+ fname + " Exception: " + e)
-            else :
-                logging.info("Deleting " + fname)
->>>>>>> 5f2892795eacc109b86e7a291921aae4e3dc20e3
 
         if ret['success'] is False:
             errstr['num_tries'] = errstr['num_tries'] + 1
