@@ -116,7 +116,7 @@ def ps2pdf(src, dst, ps2pdf_args):
     """spawns ps2pdf process"""
 
     name, ext = os.path.splitext(src)
-    out_file = dst + '/' + os.path.basename(name) + '.pdf'
+    out_file = dst + '/~' + os.path.basename(name) + '.tmp'
     cmd = ["ps2pdf"]
 
     if ps2pdf_args:
@@ -152,7 +152,9 @@ def convert_file(fname, outdir, config):
         return
 
     name, ext = os.path.splitext(fname)
-    out_file = outdir + '/' + os.path.basename(name) + '.pdf'
+    out_file = outdir + '/~' + os.path.basename(name) + '.tmp'
+    final_file = outdir + '/' + os.path.basename(name) + '.pdf'
+
     errstr = {'error': None, 'num_tries': 0}
 
     if os.path.exists(out_file + ".err"):
@@ -193,9 +195,15 @@ def convert_file(fname, outdir, config):
             errfile = open(out_file + ".err", "w")
             errfile.write(yaml.dump(errstr))
         else:
-            delete_file(fname) #remove original
-            delete_file(out_file + ".err")
-
+            # if we can't remove the original than is probably locked
+            # and some other process is actively writing to it
+            if ret['success']:
+                rename_file(out_file, final_file)
+                delete_file(fname)
+                delete_file(out_file + ".err")
+            else:
+                delete_file(out_file)
+                delete_file(out_file+'.err')
 
 def parse_config(configfile):
     """parse configuration yaml file"""
@@ -211,10 +219,23 @@ def delete_file(filename):
         if os.path.exists(filename):
             os.remove(filename)
             logging.debug("Deleting " + filename)
+            return {success: True}
     except Exception as e:
         logging.error("Cannot delete file "+ filename)
         logging.exception(e)
+        return {'success' : False}
 
+def rename_file(src, dest):
+    """delete file and catch any exceptions while doing it"""
+    try:
+        if os.path.exists(src):
+            os.rename(src, dest)
+            logging.debug("Moving tmp file " + src + " to " + dest)
+            return {'success': True}
+    except Exception as e:
+        logging.error("Cannot rename file "+ src + " to "+ dest)
+        logging.exception(e)
+        return {'success' : False}
 
 def purge_old_files(queue, config):
     """purge old files after predefined period"""
@@ -244,8 +265,8 @@ def purge_old_errors(queue, config):
                  for fn in next(os.walk(config['watch'][indir]))[2]]
         for filename in paths:
             if os.path.exists(filename) and os.path.exists(filename + ".err"):
-               queue.put([filename+".err", 'delete'])
-               i += 1
+                queue.put([filename+".err", 'delete'])
+                i += 1
         logging.info('Purging '+ str(i) + ' stale error files in' + config['watch'][indir])
 
 if __name__ == "__main__":
