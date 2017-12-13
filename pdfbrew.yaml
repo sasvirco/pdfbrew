@@ -2,8 +2,7 @@
 # which folder to watch for changes
 # containts pairs of input and output folders
 watch : 
-  /home/sas/in1 : /home/sas/out1
-  /home/sas/in2 : /home/sas/out2
+  /tmp/in : /tmp/out
 
 # delete original file if it fails to convert for
 # the specified number of tries

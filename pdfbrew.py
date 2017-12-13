@@ -141,7 +141,7 @@ def ps2pdf(src, dst, ps2pdf_args):
 
         return {'success' : False, 'error': stderr}
     else:
-        logging.info('converted file ' + src + ' to ' + out_file)
+        logging.info('created temporary file ' + src + ' to ' + out_file)
         return {'success' : True, 'error': None}
 
 
@@ -197,9 +197,9 @@ def convert_file(fname, outdir, config):
         else:
             # if we can't remove the original than is probably locked
             # and some other process is actively writing to it
-            if ret['success']:
+            delret = delete_file(fname)
+            if delret['success']:
                 rename_file(out_file, final_file)
-                delete_file(fname)
                 delete_file(out_file + ".err")
             else:
                 delete_file(out_file)
@@ -219,7 +219,7 @@ def delete_file(filename):
         if os.path.exists(filename):
             os.remove(filename)
             logging.debug("Deleting " + filename)
-            return {success: True}
+            return {'success': True}
     except Exception as e:
         logging.error("Cannot delete file "+ filename)
         logging.exception(e)
@@ -229,8 +229,8 @@ def rename_file(src, dest):
     """delete file and catch any exceptions while doing it"""
     try:
         if os.path.exists(src):
-            os.rename(src, dest)
-            logging.debug("Moving tmp file " + src + " to " + dest)
+            shutil.move(src, dest)
+            logging.info("moved tmp file " + src + " to " + dest)
             return {'success': True}
     except Exception as e:
         logging.error("Cannot rename file "+ src + " to "+ dest)
