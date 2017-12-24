@@ -13,6 +13,28 @@ import yaml
 import magic
 from apscheduler.schedulers.background import BackgroundScheduler
 
+class ErrorCounter:
+    def __init__(self):
+        self.tracker = {}
+    def get_error(self, filename):
+        if filename in self.tracker:
+            logging.debug('got error '+ filename + " tries " + str(self.tracker[filename]))
+            return self.tracker[filename]
+        else:
+            logging.debug('Got None')
+            return None
+    def set_error(self, filename):
+        if filename in self.tracker:
+            self.tracker[filename] += 1
+            logging.debug('set error'+ filename + " tries " + str(self.tracker[filename]))
+        else:
+            self.tracker[filename] = 1
+            logging.info('set error '+ filename + " tries " + str(self.tracker[filename]))
+    def delete_error(self, filename):
+        if filename in self.tracker:
+            del self.tracker[filename]
+            logging.debug('delete error for '+ filename )
+
 def main():
     """main"""
 
@@ -39,6 +61,8 @@ def main():
               'logfile': 'pdfbrew.log', 'fail_tries': 10}
 
     config.update(newconf)
+
+    config['err'] = ErrorCounter()
 
     if args.logfile:
         config['logfile'] = args.logfile
@@ -154,24 +178,21 @@ def convert_file(fname, outdir, config):
     name, ext = os.path.splitext(fname)
     out_file = outdir + '/~' + os.path.basename(name) + '.tmp'
     final_file = outdir + '/' + os.path.basename(name) + '.pdf'
+    err = config['err']
+    tries = 0
 
-    errstr = {'error': None, 'num_tries': 0}
-
-    if os.path.exists(out_file + ".err"):
-        errfile = open(out_file + ".err")
-        err = yaml.load(errfile.read())
+    if err.get_error(final_file):
+        tries = err.get_error(final_file)
         logging.debug('Previous error detected for ' + fname
-                      + ' try ' + str(err['num_tries'])
+                      + ' try ' + str(tries)
                       + '/' + str(config['fail_tries']))
 
-        errstr.update(err)
-
-    if errstr['num_tries'] > config['fail_tries']:
+    if tries > config['fail_tries']:
         logging.error('Exceeding number of attempts to convert '
                       + fname)
         if config['delete_onfail']:
             delete_file(fname)
-            delete_file(out_file + ".err")
+            err.delete_error(final_file)
             return
 
     with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
@@ -190,20 +211,17 @@ def convert_file(fname, outdir, config):
 
 
         if ret['success'] is False:
-            errstr['num_tries'] = errstr['num_tries'] + 1
-            errstr['error'] = ret['error']
-            errfile = open(out_file + ".err", "w")
-            errfile.write(yaml.dump(errstr))
+            err.set_error(final_file)
         else:
             # if we can't remove the original than is probably locked
             # and some other process is actively writing to it
             delret = delete_file(fname)
             if delret['success']:
                 rename_file(out_file, final_file)
-                delete_file(out_file + ".err")
+                err.delete_error(final_file)
             else:
                 delete_file(out_file)
-                delete_file(out_file+'.err')
+                err.delete_error(final_file)
 
 def parse_config(configfile):
     """parse configuration yaml file"""
@@ -255,19 +273,19 @@ def purge_old_files(queue, config):
         logging.info('Purging ' + str(i) + " old files in " + config['watch'][indir])
 
 def purge_old_errors(queue, config):
-    """purge stale errors files"""
-    logging.debug('Purging stale error files')
-
+    """purge stale errors"""
+    logging.debug('Purging stale errors')
+    err = config['err']
     i = 0
     for indir in config['watch']:
         logging.debug('scaning '+ config['watch'][indir] + ' for stale error files')
         paths = [os.path.join(config['watch'][indir], fn)
                  for fn in next(os.walk(config['watch'][indir]))[2]]
         for filename in paths:
-            if os.path.exists(filename) and os.path.exists(filename + ".err"):
-                queue.put([filename+".err", 'delete'])
+            if os.path.exists(filename) and err.get_error(filename):
+                err.delete_error(filename)
                 i += 1
-        logging.info('Purging '+ str(i) + ' stale error files in' + config['watch'][indir])
+        logging.info('Purging '+ str(i) + ' stale errorsin' )
 
 if __name__ == "__main__":
     main()
