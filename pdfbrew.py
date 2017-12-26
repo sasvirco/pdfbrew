@@ -29,7 +29,7 @@ class ErrorCounter:
             logging.debug('set error'+ filename + " tries " + str(self.tracker[filename]))
         else:
             self.tracker[filename] = 1
-            logging.info('set error '+ filename + " tries " + str(self.tracker[filename]))
+            logging.debug('set error '+ filename + " tries " + str(self.tracker[filename]))
     def delete_error(self, filename):
         if filename in self.tracker:
             del self.tracker[filename]
