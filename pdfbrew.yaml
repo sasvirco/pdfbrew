@@ -29,8 +29,9 @@ fail_tries:  10
 # how long to keep converted files (in seconds)
 purge_age: 1209600
 
-# how often to run purge old files job (default 1 day in seconds) 
-purge_int : 86400
+# how often to run purge old files job (default every day at 00:05)
+# uses crontab expressions
+purge_int : '5 0 * * *'
 
 # how often to remove stale error files (default 1 hour in seconds)
 purge_err_int: 3600

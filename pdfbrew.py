@@ -12,6 +12,7 @@ import time
 import yaml
 import magic
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 class ErrorCounter:
     def __init__(self):
@@ -21,7 +22,6 @@ class ErrorCounter:
             logging.debug('got error '+ filename + " tries " + str(self.tracker[filename]))
             return self.tracker[filename]
         else:
-            logging.debug('Got None')
             return None
     def set_error(self, filename):
         if filename in self.tracker:
@@ -103,8 +103,7 @@ def main():
     scheduler = BackgroundScheduler(daemon=True)
     scheduler.start()
 
-    scheduler.add_job(purge_old_files, 'interval', seconds=int(config['purge_int']),
-                      args=[queue, config])
+    scheduler.add_job(purge_old_files, CronTrigger.from_crontab(config['purge_int']), args=[queue, config])
     scheduler.add_job(purge_old_errors, 'interval', seconds=int(config['purge_err_int']),
                       args=[queue, config])
     scheduler.add_job(poll_folders, 'interval', seconds=int(config['polling_interval']),
@@ -121,6 +120,7 @@ def poll_folders(queue, config):
     for indir in config['watch']:
         logging.debug('scaning '+ indir + ' for new files')
         paths = [os.path.join(indir, fn) for fn in next(os.walk(indir))[2]]
+	logging.debug(indir + ' contains ' + str(len(paths)) + ' file(s)')
         for path in paths:
             queue.put([path, 'convert'])
 
@@ -285,7 +285,7 @@ def purge_old_errors(queue, config):
             if os.path.exists(filename) and err.get_error(filename):
                 err.delete_error(filename)
                 i += 1
-        logging.info('Purging '+ str(i) + ' stale errorsin' )
+        logging.info('Purging '+ str(i) + ' stale errors' )
 
 if __name__ == "__main__":
     main()
