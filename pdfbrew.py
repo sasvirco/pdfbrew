@@ -181,7 +181,10 @@ def convert_file(fname, outdir, config):
     final_file = outdir + '/' + os.path.basename(name) + '.pdf'
     err = config['err']
     tries = 0
-
+    
+    if os.path.exists(out_file):
+        return
+    
     if err.get_error(final_file):
         tries = err.get_error(final_file)
         logging.debug('Previous error detected for ' + fname
