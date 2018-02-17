@@ -120,7 +120,7 @@ def poll_folders(queue, config):
     for indir in config['watch']:
         logging.debug('scaning '+ indir + ' for new files')
         paths = [os.path.join(indir, fn) for fn in next(os.walk(indir))[2]]
-	    logging.debug(indir + ' contains ' + str(len(paths)) + ' file(s)')
+        logging.debug(indir + ' contains ' + str(len(paths)) + ' file(s)')
         for path in paths:
             queue.put([path, 'convert'])
             logging.debug("added " + path + " to the queue")
