@@ -53,7 +53,7 @@ def main():
 
     newconf = parse_config(args.configfile)
 
-    config = {'polling_interval' : 15, 'purge_age' : 300, 'purge_int' : 120,
+    config = {'polling_interval' : 15, 'purge_age' : 1209600, 'purge_int' : '5 0 * * *',
               'purge_err_int': 120, 'num_workers' : 4, 'delete_onfail': True,
               'filetypes' : ['application/postscript', 'application/pdf',
                              'text/plain', 'application/octet-stream'],
