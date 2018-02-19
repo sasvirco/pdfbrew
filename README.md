@@ -31,7 +31,6 @@ delete_onfail : yes
 
 # copy original file in the output_folder 
 # alongside the converted one 
-# resets delete_original to True
 copy_original: no
 
 # debug level 
@@ -46,18 +45,18 @@ polling_interval: 15
 # number of tries for failed attempts
 fail_tries:  10
 
-# how long to keep converted files (default 2 weeks in seconds)
+# how long to keep converted files (in seconds)
 purge_age: 1209600
 
-# how often to run purge old files job (default 1 day in seconds) 
-purge_int : 86400
+# how often to run purge old files job (default every day at 00:05)
+# uses crontab expressions
+purge_int : '5 0 * * *'
 
 # how often to remove stale error files (default 1 hour in seconds)
 purge_err_int: 3600
 
 # number of convert worker threads
 num_workers: 4
-
 
 # filetypes to convert from
 # ignores other files in input dir
