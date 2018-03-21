@@ -53,7 +53,7 @@ def main():
 
     newconf = parse_config(args.configfile)
 
-    config = {'polling_interval' : 15, 'purge_age' : 300, 'purge_int' : 120,
+    config = {'polling_interval' : 15, 'purge_age' : 1209600, 'purge_int' : '5 0 * * *',
               'purge_err_int': 120, 'num_workers' : 4, 'delete_onfail': True,
               'filetypes' : ['application/postscript', 'application/pdf',
                              'text/plain', 'application/octet-stream'],
@@ -120,9 +120,10 @@ def poll_folders(queue, config):
     for indir in config['watch']:
         logging.debug('scaning '+ indir + ' for new files')
         paths = [os.path.join(indir, fn) for fn in next(os.walk(indir))[2]]
-	logging.debug(indir + ' contains ' + str(len(paths)) + ' file(s)')
+        logging.debug(indir + ' contains ' + str(len(paths)) + ' file(s)')
         for path in paths:
             queue.put([path, 'convert'])
+            logging.debug("added " + path + " to the queue")
 
 def process_queue(queue, config):
     """ process event queue """
@@ -180,7 +181,10 @@ def convert_file(fname, outdir, config):
     final_file = outdir + '/' + os.path.basename(name) + '.pdf'
     err = config['err']
     tries = 0
-
+    
+    if os.path.exists(out_file):
+        return
+    
     if err.get_error(final_file):
         tries = err.get_error(final_file)
         logging.debug('Previous error detected for ' + fname
@@ -262,7 +266,7 @@ def purge_old_files(queue, config):
     now = time.time()
     i = 0
     for indir in config['watch']:
-        logging.debug('scaning '+ indir + ' for stale error files')
+        logging.debug('scaning '+ indir + ' for outdated files')
         paths = [os.path.join(config['watch'][indir], fn)
                  for fn in next(os.walk(config['watch'][indir]))[2]]
         for filename in paths:
@@ -273,19 +277,26 @@ def purge_old_files(queue, config):
         logging.info('Purging ' + str(i) + " old files in " + config['watch'][indir])
 
 def purge_old_errors(queue, config):
-    """purge stale errors"""
-    logging.debug('Purging stale errors')
+    """purge stale errors and tempfiles"""
+    logging.debug('Purging stale errors and tempfiles')
     err = config['err']
     i = 0
     for indir in config['watch']:
-        logging.debug('scaning '+ config['watch'][indir] + ' for stale error files')
+        logging.debug('scaning '+ config['watch'][indir] + ' for stale error/temporary files')
         paths = [os.path.join(config['watch'][indir], fn)
                  for fn in next(os.walk(config['watch'][indir]))[2]]
         for filename in paths:
+            dst = os.path.dirname(filename)
+            name, ext = os.path.splitext(filename)
+            tmp_file = dst + '/~' + os.path.basename(name) + '.TMP'
+
             if os.path.exists(filename) and err.get_error(filename):
                 err.delete_error(filename)
+            
+            if os.path.exists(tmp_file) and os.path.exists(filename):
+                queue.put([tmp_file, 'delete'])
                 i += 1
-        logging.info('Purging '+ str(i) + ' stale errors' )
+        logging.info('Purging '+ str(i) + ' stale errors/temporary files' )
 
 if __name__ == "__main__":
     main()
